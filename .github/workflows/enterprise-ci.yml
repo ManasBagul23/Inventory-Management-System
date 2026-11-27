@@ -1,0 +1,49 @@
+name: Enterprise Inventory CI
+
+on:
+  pull_request:
+    paths:
+      - enterprise/**
+      - .github/workflows/enterprise-ci.yml
+  push:
+    branches: [master]
+    paths:
+      - enterprise/**
+      - .github/workflows/enterprise-ci.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      INVENTORY_DEBUG: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: enterprise/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: enterprise/frontend/package-lock.json
+      - name: Install Django dependencies
+        working-directory: enterprise
+        run: python -m pip install -r requirements.txt
+      - name: Check database migrations
+        working-directory: enterprise
+        run: python manage.py makemigrations --check --dry-run
+      - name: Test inventory workflows
+        working-directory: enterprise
+        run: python manage.py test
+      - name: Install React dependencies
+        working-directory: enterprise/frontend
+        run: npm ci
+      - name: Build React frontend
+        working-directory: enterprise/frontend
+        run: npm run build
